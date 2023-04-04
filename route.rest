@@ -7,7 +7,36 @@ content-type: application/json
     "event_id": 10058
 }
 
-# eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYzZjc0NjAxZjZmMDg2NTI3ZjA5Nzc4ZiIsImlhdCI6MTY3NzE2NTg5MCwiZXhwIjoxNjc3MjUyMjkwfQ.Rrz5BEfRkelOzxg2VZnfbNaSUxx7FNKpuIG8EBCbNK8
 ###
-GET http://localhost:3001/profile
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjYzZjc0NjAxZjZmMDg2NTI3ZjA5Nzc4ZiIsImlhdCI6MTY3NzE2NTg5MCwiZXhwIjoxNjc3MjUyMjkwfQ.Rrz5BEfRkelOzxg2VZnfbNaSUxx7FNKpuIG8EBCbNK8
+GET http://localhost:3000/pushes
+
+# 1477937
+
+# [
+#   {
+#     "_id": "63e4cb9b6638ea2964ea0432",
+#     "user_id": 30460,
+#     "sport_id": 1,
+#     "event_id": 1730432,
+#     "incidents": 6,
+#     "__v": 0
+#   }
+
+#   {
+#     "_id": "63e4cb9b6638ea2964ea0432",
+#     "user_id": 1400,
+#     "sport_id": 1,
+#     "event_id": 1730432,
+#     "incidents": 6,
+#     "__v": 0
+#   }
+
+#     {
+#     "_id": "63e4cb9b6638ea2964ea0432",
+#     "user_id": 1400,
+#     "sport_id": 1,
+#     "event_id": 8888,
+#     "incidents": 6,
+#     "__v": 0
+#   }
+# ]

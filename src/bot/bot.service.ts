@@ -14,7 +14,7 @@ export class BotService {
   getProxyData() {
     axios.default
       .post('http://bot.midera.fun:8000/server/settings', {
-        email: 'vacompany.info@gmail.com',
+        email: 'krakhimov.it@gmail.com',
       })
       .then(async (res) => {
         await validatorDto(BotDto, res.data);
@@ -44,14 +44,11 @@ export class BotService {
     });
     // await this.page.setViewport({ width: 1200, height: 720 });
     await this.page.goto('https://linkedin.com/login/', {
-      waitUntil: 'networkidle2',
+      waitUntil: 'load',
       timeout: 0,
     });
-    await this.page.type(
-      'input[name="session_key"]',
-      'vacompany.info@gmail.com',
-    );
-    await this.page.type('input[name="session_password"]', 'jfhy@u6EW!');
+    await this.page.type('input[name="session_key"]', 'krakhimov.it@gmail.com');
+    await this.page.type('input[name="session_password"]', 'kmwd1916');
     await Promise.all([
       this.page.click('button[type=submit]'),
       this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 0 }),
@@ -62,45 +59,49 @@ export class BotService {
     this.socket = io('https://bot.midera.fun', {
       transports: ['websocket'],
     });
-    await this.page.goto('https://linkedin.com/dashboard/', {
-      waitUntil: 'load',
-      timeout: 0,
-    });
-    const stats = await this.page.$$('div.pcd-analytics-view-item');
-    const stats_list = [];
-    stats.forEach(async (tool, id) => {
-      console.log(id);
-      const number = await this.page.evaluate(
-        (el) => el.querySelector('div > p.text-body-large-bold').textContent,
-        tool,
-      );
-      const text = await this.page.evaluate(
-        (el) => el.querySelector('div > p.text-body-small').textContent,
-        tool,
-      );
-      stats_list.push({
-        id: id,
-        stat: number.replace(/  |\r\n|\n|\r/gm, ''),
-        text: text.replace(/  |\r\n|\n|\r/gm, ''),
+
+    this.socket.on('statistics', async ({ link }) => {
+      // GET STATS
+      await this.page.goto('https://linkedin.com/dashboard/', {
+        waitUntil: 'load',
+        timeout: 0,
       });
-      console.log(stats_list);
+      const stats = await this.page.$$('div.pcd-analytics-view-item');
+      const stats_list = [];
+      for (const tool in stats) {
+        const number = await this.page.evaluate(
+          (el) => el.querySelector('div > p.text-body-large-bold').textContent,
+          stats[tool],
+        );
+        const text = await this.page.evaluate(
+          (el) => el.querySelector('div > p.text-body-small').textContent,
+          stats[tool],
+        );
+        stats_list.push({
+          id: tool,
+          stat: number.replace(/  |\r\n|\n|\r/gm, ''),
+          text: text.replace(/  |\r\n|\n|\r/gm, ''),
+        });
+      }
+
+      // GET CONNECTIONS
+      await this.page.goto(
+        'https://www.linkedin.com/mynetwork/invite-connect/connections/',
+        {
+          waitUntil: 'load',
+          timeout: 0,
+        },
+      );
+      await this.page.waitForSelector('.mn-connections__header');
+      await this.page.waitForSelector('h1');
+      const connections = await this.page.$eval('h1', (el) => el.innerText);
+      console.log('kek-> ', connections);
+      this.socket.emit('statistics', {
+        data: {
+          connections,
+          stats_list,
+        },
+      });
     });
-
-    console.log(stats_list);
-
-    // this.socket.on('statistics', ({ link }) => {
-    //   this.page.goto('https://linkedin.com/dashboard/', {
-    //     waitUntil: 'networkidle0',
-    //     timeout: 0,
-    //   });
-    //   this.page.waitForSelector('#ember31');
-    //   const textContent = this.page.evaluate(
-    //     () => document.querySelector('[data-test-foobar3="true"]').textContent,
-    //   );
-    //   console.log('Page title = ' + textContent);
-    //   this.socket.emit('statistics', {
-    //     dima: 'loh',
-    //   });
-    // });
   }
 }
