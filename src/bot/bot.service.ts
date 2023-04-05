@@ -14,7 +14,7 @@ export class BotService {
   getProxyData() {
     axios.default
       .post('http://bot.midera.fun:8000/server/settings', {
-        email: 'krakhimov.it@gmail.com',
+        email: 'vacompany.info@gmail.com',
       })
       .then(async (res) => {
         await validatorDto(BotDto, res.data);
@@ -42,13 +42,15 @@ export class BotService {
       username: proxyData.login,
       password: proxyData.password,
     });
-    // await this.page.setViewport({ width: 1200, height: 720 });
     await this.page.goto('https://linkedin.com/login/', {
       waitUntil: 'load',
       timeout: 0,
     });
-    await this.page.type('input[name="session_key"]', 'krakhimov.it@gmail.com');
-    await this.page.type('input[name="session_password"]', 'kmwd1916');
+    await this.page.type(
+      'input[name="session_key"]',
+      'vacompany.info@gmail.com',
+    );
+    await this.page.type('input[name="session_password"]', 'jfhy@u6EW!');
     await Promise.all([
       this.page.click('button[type=submit]'),
       this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 0 }),
@@ -59,8 +61,51 @@ export class BotService {
     this.socket = io('https://bot.midera.fun', {
       transports: ['websocket'],
     });
+    // https://www.linkedin.com/company/90807544/admin/
 
-    this.socket.on('statistics', async ({ link }) => {
+    await this.page.goto('https://www.linkedin.com/company/90807544/admin/', {
+      waitUntil: 'load',
+      timeout: 0,
+    });
+    await this.page.waitForSelector('aside.scaffold-layout__aside');
+    const analytics_node = await this.page.$('aside.scaffold-layout__aside');
+    const analytics_number = await analytics_node.$$eval('.t-16', (nodes) =>
+      nodes.map((n) => n.innerText),
+    );
+    const analytics_text = await analytics_node.$$eval('.t-14', (nodes) =>
+      nodes.map((n) => n.innerText),
+    );
+    const analytics_list = [];
+    analytics_number.forEach((item, id) => {
+      analytics_list.push({
+        id: id,
+        number: item,
+        text: analytics_text[id],
+      });
+    });
+    console.log(analytics_list);
+    // for (const tool in analytics) {
+    //   const number = await this.page.evaluate(
+    //     (el) =>
+    //       el.querySelector('section > div > div > div > p.t-16').textContent,
+    //     analytics[tool],
+    //   );
+    //   const text = await this.page.evaluate(
+    //     (el) =>
+    //       el.querySelector('section > div > div > div > div > p.t-16')
+    //         .textContent,
+    //     analytics[tool],
+    //   );
+    //   analytics_list.push({
+    //     id: tool,
+    //     stat: number.replace(/  |\r\n|\n|\r/gm, ''),
+    //     text: text.replace(/  |\r\n|\n|\r/gm, ''),
+    //   });
+    // }
+
+    console.log(analytics_list);
+
+    this.socket.on('statistics', async ({ link_organization }) => {
       // GET STATS
       await this.page.goto('https://linkedin.com/dashboard/', {
         waitUntil: 'load',
@@ -95,7 +140,7 @@ export class BotService {
       await this.page.waitForSelector('.mn-connections__header');
       await this.page.waitForSelector('h1');
       const connections = await this.page.$eval('h1', (el) => el.innerText);
-      console.log('kek-> ', connections);
+
       this.socket.emit('statistics', {
         data: {
           connections,
