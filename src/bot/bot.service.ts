@@ -20,7 +20,7 @@ export class BotService {
         await validatorDto(BotDto, res.data);
         this.startBot(res.data)
           .then(() => {
-            this.startSockets();
+            // this.startSockets();
           })
           .catch((err) => {
             console.log('startBot error-> ', err);
@@ -61,49 +61,6 @@ export class BotService {
     this.socket = io('https://bot.midera.fun', {
       transports: ['websocket'],
     });
-    // https://www.linkedin.com/company/90807544/admin/
-
-    await this.page.goto('https://www.linkedin.com/company/90807544/admin/', {
-      waitUntil: 'load',
-      timeout: 0,
-    });
-    await this.page.waitForSelector('aside.scaffold-layout__aside');
-    const analytics_node = await this.page.$('aside.scaffold-layout__aside');
-    const analytics_number = await analytics_node.$$eval('.t-16', (nodes) =>
-      nodes.map((n) => n.innerText),
-    );
-    const analytics_text = await analytics_node.$$eval('.t-14', (nodes) =>
-      nodes.map((n) => n.innerText),
-    );
-    const analytics_list = [];
-    analytics_number.forEach((item, id) => {
-      analytics_list.push({
-        id: id,
-        number: item,
-        text: analytics_text[id],
-      });
-    });
-    console.log(analytics_list);
-    // for (const tool in analytics) {
-    //   const number = await this.page.evaluate(
-    //     (el) =>
-    //       el.querySelector('section > div > div > div > p.t-16').textContent,
-    //     analytics[tool],
-    //   );
-    //   const text = await this.page.evaluate(
-    //     (el) =>
-    //       el.querySelector('section > div > div > div > div > p.t-16')
-    //         .textContent,
-    //     analytics[tool],
-    //   );
-    //   analytics_list.push({
-    //     id: tool,
-    //     stat: number.replace(/  |\r\n|\n|\r/gm, ''),
-    //     text: text.replace(/  |\r\n|\n|\r/gm, ''),
-    //   });
-    // }
-
-    console.log(analytics_list);
 
     this.socket.on('statistics', async ({ link_organization }) => {
       // GET STATS
@@ -141,10 +98,41 @@ export class BotService {
       await this.page.waitForSelector('h1');
       const connections = await this.page.$eval('h1', (el) => el.innerText);
 
+      // GET ANALYTICS
+      const analytics_list = [];
+      if (link_organization) {
+        await this.page.goto(
+          'https://www.linkedin.com/company/90807544/admin/',
+          {
+            waitUntil: 'load',
+            timeout: 0,
+          },
+        );
+        await this.page.waitForSelector('aside.scaffold-layout__aside');
+        const analytics_node = await this.page.$(
+          'aside.scaffold-layout__aside',
+        );
+        const analytics_number = await analytics_node.$$eval('.t-16', (nodes) =>
+          nodes.map((n) => n.innerText),
+        );
+        const analytics_text = await analytics_node.$$eval('.t-14', (nodes) =>
+          nodes.map((n) => n.innerText),
+        );
+        for (const item in analytics_number) {
+          analytics_list.push({
+            id: item,
+            number: analytics_number[item],
+            text: analytics_text[Number(item) + 1],
+          });
+        }
+      }
+      console.log(connections, stats_list, analytics_list);
+
       this.socket.emit('statistics', {
         data: {
           connections,
           stats_list,
+          analytics_list,
         },
       });
     });
