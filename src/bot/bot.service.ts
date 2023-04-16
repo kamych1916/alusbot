@@ -23,101 +23,7 @@ export class BotService {
         await validatorDto(BotDto, res.data);
         this.startBot(res.data)
           .then(async () => {
-            // this.startSockets();
-
-            await this.page.goto(link_filters, {
-              waitUntil: 'load',
-              timeout: 0,
-            });
-
-            const users_list = [];
-            let isBtnDisabled = false;
-            while (!isBtnDisabled) {
-              await this.page.waitForSelector(
-                'div._vertical-scroll-results_1igybl',
-                { visible: true },
-              );
-              await this.page.waitForSelector('ol.artdeco-list', {
-                visible: true,
-              });
-              await this.page.waitForSelector(
-                'div.artdeco-entity-lockup__title',
-                { visible: true },
-              );
-              await this.page.waitForSelector(
-                'div.artdeco-entity-lockup__subtitle',
-                { visible: true },
-              );
-              await this.page.waitForSelector(
-                'div.artdeco-entity-lockup__caption',
-                { visible: true },
-              );
-              await this.page.waitForSelector(
-                '.artdeco-pagination__button--next',
-                { visible: true },
-              );
-
-              await this.page.$eval(
-                'div._vertical-scroll-results_1igybl',
-                (el) =>
-                  el.scrollTo({
-                    top: el.scrollHeight / 1.5,
-                    behavior: 'smooth',
-                  }),
-              );
-              await this.page.waitForTimeout(2000);
-              await this.page.$eval(
-                'div._vertical-scroll-results_1igybl',
-                (el) =>
-                  el.scrollTo({
-                    top: el.scrollHeight + 200,
-                    behavior: 'smooth',
-                  }),
-              );
-              await this.page.waitForTimeout(2000);
-
-              const users_node = await this.page.$('ol.artdeco-list');
-              const user_name = await users_node.$$eval(
-                'div.artdeco-entity-lockup__title > a > span',
-                (nodes) => nodes.map((n) => n.innerText),
-              );
-              const user_specialization = await users_node.$$eval(
-                'div.artdeco-entity-lockup__subtitle',
-                (nodes) => nodes.map((n) => n.innerText),
-              );
-              const user_link = await users_node.$$eval(
-                'div.artdeco-entity-lockup__title > a',
-                (nodes) => nodes.map((n) => n.href),
-              );
-              const user_location = await users_node.$$eval(
-                'div.artdeco-entity-lockup__caption > span',
-                (nodes) => nodes.map((n) => n.innerText),
-              );
-
-              for (const item in user_name) {
-                users_list.push({
-                  id: parseInt(item) + 1,
-                  name: user_name[item],
-                  specialization: user_specialization[item],
-                  location: user_location[item],
-                  link: user_link[item],
-                });
-              }
-
-              const is_disabled =
-                (await this.page.$(
-                  'button.artdeco-button--disabled.artdeco-pagination__button--next',
-                )) !== null;
-              isBtnDisabled = is_disabled;
-
-              if (!is_disabled) {
-                await this.page.click(
-                  'button.artdeco-pagination__button--next',
-                );
-                console.log('user_list-> ', users_list);
-                console.log('user_list_length-> ', users_list.length);
-              }
-            }
+            this.startSockets();
           })
           .catch((err) => {
             console.log('startBot error-> ', err);
@@ -235,11 +141,110 @@ export class BotService {
     });
 
     this.socket.on('sales', async ({ link }) => {
-      console.log(link);
       await this.page.goto(link, {
         waitUntil: 'load',
         timeout: 0,
       });
+
+      const users_list = [];
+      let isBtnDisabled = false;
+      while (!isBtnDisabled) {
+        await this.page.waitForSelector('div._vertical-scroll-results_1igybl', {
+          visible: true,
+        });
+        await this.page.waitForSelector('ol.artdeco-list', {
+          visible: true,
+        });
+        await this.page.waitForSelector('div.artdeco-entity-lockup__title', {
+          visible: true,
+        });
+        await this.page.waitForSelector('div.artdeco-entity-lockup__subtitle', {
+          visible: true,
+        });
+        await this.page.waitForSelector('div.artdeco-entity-lockup__caption', {
+          visible: true,
+        });
+        await this.page.waitForSelector('.artdeco-pagination__button--next', {
+          visible: true,
+        });
+
+        await this.page.$eval('div._vertical-scroll-results_1igybl', (el) =>
+          el.scrollTo({
+            top: el.scrollHeight / 1.5,
+            behavior: 'smooth',
+          }),
+        );
+        await this.page.waitForTimeout(2000);
+        await this.page.$eval('div._vertical-scroll-results_1igybl', (el) =>
+          el.scrollTo({
+            top: el.scrollHeight + 200,
+            behavior: 'smooth',
+          }),
+        );
+        await this.page.waitForTimeout(2000);
+
+        const users_node = await this.page.$('ol.artdeco-list');
+        const user_name = await users_node.$$eval(
+          'div.artdeco-entity-lockup__title > a > span',
+          (nodes) => nodes.map((n) => n.innerText),
+        );
+        const user_company = await users_node.$$eval(
+          'div.artdeco-entity-lockup__subtitle',
+          (nodes) =>
+            nodes.map((n) => {
+              if (n.querySelector('a') !== null) {
+                return n.querySelector('a').innerText;
+              } else {
+                return n.innerText.split('  ')[1];
+              }
+            }),
+        );
+        const user_specialization = await users_node.$$eval(
+          'div.artdeco-entity-lockup__subtitle',
+          (nodes) =>
+            nodes.map((n) => {
+              // if (n.querySelector('a') !== null) {
+              //   return n.querySelector('span').innerText;
+              // } else {
+              //   return n.innerText;
+              // }
+              return n.querySelector('span').innerText;
+            }),
+        );
+        const user_link = await users_node.$$eval(
+          'div.artdeco-entity-lockup__title > a',
+          (nodes) => nodes.map((n) => n.href),
+        );
+        const user_location = await users_node.$$eval(
+          'div.artdeco-entity-lockup__caption > span',
+          (nodes) => nodes.map((n) => n.innerText),
+        );
+
+        for (const item in user_name) {
+          users_list.push({
+            id: parseInt(item) + 1,
+            name: user_name[item],
+            company: user_company[item],
+            specialization: user_specialization[item],
+            location: user_location[item],
+            link: user_link[item],
+          });
+        }
+
+        const is_disabled =
+          (await this.page.$(
+            'button.artdeco-button--disabled.artdeco-pagination__button--next',
+          )) !== null;
+        isBtnDisabled = is_disabled;
+
+        if (!is_disabled) {
+          await this.page.click('button.artdeco-pagination__button--next');
+          console.log('user_list-> ', users_list);
+        }
+      }
+
+      console.log('user_list-> ', users_list);
+      console.log('user_list_length-> ', users_list.length);
     });
   }
 }
