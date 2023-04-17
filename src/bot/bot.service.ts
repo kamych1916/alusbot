@@ -5,8 +5,10 @@ import { validatorDto } from 'src/dtos/validator.dto';
 import puppeteer from 'puppeteer';
 import { io } from 'socket.io-client';
 
+// const link_filters =
+// 'https://www.linkedin.com/sales/search/people?page=3&query=(spellCorrectionEnabled%3Atrue%2CrecentSearchParam%3A(id%3A2188521001%2CdoLogHistory%3Atrue)%2Cfilters%3AList((type%3AREGION%2Cvalues%3AList((id%3A104994045%2Ctext%3AMoscow%2520City%252C%2520Russia%2CselectionType%3AINCLUDED))))%2Ckeywords%3AAhmed)&sessionId=DIfp5pHPT3mxkryUILAQyw%3D%3D';
 const link_filters =
-  'https://www.linkedin.com/sales/search/people?page=3&query=(spellCorrectionEnabled%3Atrue%2CrecentSearchParam%3A(id%3A2188521001%2CdoLogHistory%3Atrue)%2Cfilters%3AList((type%3AREGION%2Cvalues%3AList((id%3A104994045%2Ctext%3AMoscow%2520City%252C%2520Russia%2CselectionType%3AINCLUDED))))%2Ckeywords%3AAhmed)&sessionId=DIfp5pHPT3mxkryUILAQyw%3D%3D';
+  'https://www.linkedin.com/search/results/people/?geoUrn=%5B%22104305776%22%5D&origin=FACETED_SEARCH&sid=5.F&titleFreeText=Founder';
 
 @Injectable()
 export class BotService {
@@ -52,8 +54,10 @@ export class BotService {
     await this.page.type(
       'input[name="session_key"]',
       'vacompany.info@gmail.com',
+      // 'krakhimov.it@gmail.com',
     );
     await this.page.type('input[name="session_password"]', 'jfhy@u6EW!');
+    // await this.page.type('input[name="session_password"]', 'kmwd1916');
     await Promise.all([
       this.page.click('button[type=submit]'),
       this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 0 }),
@@ -140,7 +144,7 @@ export class BotService {
       });
     });
 
-    this.socket.on('sales', async ({ link }) => {
+    this.socket.on('sales_navigator', async ({ link }) => {
       await this.page.goto(link, {
         waitUntil: 'load',
         timeout: 0,
@@ -245,6 +249,93 @@ export class BotService {
           )) !== null;
         isBtnDisabled = is_disabled;
 
+        if (!is_disabled) {
+          await this.page.click('button.artdeco-pagination__button--next');
+          await this.page.waitForTimeout(2000);
+        }
+      }
+    });
+
+    this.socket.on('sales', async ({ link }) => {
+      await this.page.goto(link, {
+        waitUntil: 'load',
+        timeout: 0,
+      });
+
+      let isBtnDisabled = false;
+      while (!isBtnDisabled) {
+        await this.page.waitForSelector('main.scaffold-layout__main', {
+          visible: true,
+        });
+        await this.page.waitForSelector('div.artdeco-card', {
+          visible: true,
+        });
+        await this.page.$eval('html', (el) =>
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'smooth',
+          }),
+        );
+        await this.page.waitForTimeout(2000);
+        await this.page.waitForSelector('span.entity-result__title-text', {
+          visible: true,
+        });
+        await this.page.waitForSelector(
+          'button.artdeco-pagination__button--next',
+          {
+            visible: true,
+          },
+        );
+
+        const users_node = await this.page.$(
+          'ul.reusable-search__entity-result-list',
+        );
+        const user_name = await users_node.$$eval(
+          'span.entity-result__title-text',
+          (nodes) =>
+            nodes.map((n) => {
+              if (n.querySelector('span') !== null) {
+                return n.querySelector('span').querySelector('span').innerText;
+              } else {
+                return n.innerText;
+              }
+            }),
+        );
+        const user_company = await users_node.$$eval(
+          'div.entity-result__primary-subtitle',
+          (nodes) => nodes.map((n) => n.innerText),
+        );
+        const user_location = await users_node.$$eval(
+          'div.entity-result__secondary-subtitle',
+          (nodes) => nodes.map((n) => n.innerText),
+        );
+        const user_link = await users_node.$$eval(
+          'span.entity-result__title-text > a',
+          (nodes) => nodes.map((n) => n.href),
+        );
+
+        const users_list = [];
+        for (const item in user_name) {
+          if (user_name[item] !== 'LinkedIn Member') {
+            users_list.push({
+              id: parseInt(item) + 1,
+              name: user_name[item],
+              company: user_company[item],
+              location: user_location[item],
+              link: user_link[item],
+            });
+          }
+        }
+
+        this.socket.emit('sales', users_list);
+        console.log('user_list-> ', users_list);
+        console.log('user_list_length-> ', users_list.length);
+
+        const is_disabled =
+          (await this.page.$(
+            'button.artdeco-button--disabled.artdeco-pagination__button--next',
+          )) !== null;
+        isBtnDisabled = is_disabled;
         if (!is_disabled) {
           await this.page.click('button.artdeco-pagination__button--next');
           await this.page.waitForTimeout(2000);
