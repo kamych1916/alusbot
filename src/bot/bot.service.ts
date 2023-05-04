@@ -13,8 +13,10 @@ export class BotService {
   private socket;
   private browser;
   private page;
-  private email = 'vacompany.info@gmail.com';
-  private password = 'jfhy@u6EW!';
+  // private email = 'vacompany.info@gmail.com';
+  // private password = 'jfhy@u6EW!';
+  private email = 'krakhimov.it@gmail.com';
+  private password = 'kmwd1916';
 
   getProxyData() {
     axios.default
@@ -51,6 +53,7 @@ export class BotService {
       waitUntil: 'load',
       timeout: 0,
     });
+
     await this.page.type('input[name="session_key"]', this.email);
     await this.page.type('input[name="session_password"]', this.password);
     await Promise.all([
@@ -147,6 +150,7 @@ export class BotService {
         timeout: 0,
       });
 
+      const all_users = [];
       let isBtnDisabled = false;
       while (!isBtnDisabled) {
         await this.page.waitForSelector('div._vertical-scroll-results_1igybl', {
@@ -161,9 +165,17 @@ export class BotService {
           visible: true,
           timeout: 35000,
         });
-        await this.page.waitForSelector('.artdeco-pagination__button--next', {
-          visible: true,
-          timeout: 35000,
+        await this.page.waitForSelector(
+          'button.artdeco-pagination__button--next',
+          {
+            visible: true,
+            timeout: 35000,
+          },
+        );
+
+        await this.page.waitForSelector('html');
+        await this.page.$eval('html', (el) => {
+          el.querySelector('body').style.zoom = 0.5;
         });
 
         await this.page.$eval('div._vertical-scroll-results_1igybl', (el) =>
@@ -175,11 +187,18 @@ export class BotService {
         await this.page.waitForTimeout(2000);
         await this.page.$eval('div._vertical-scroll-results_1igybl', (el) =>
           el.scrollTo({
-            top: el.scrollHeight + 200,
+            top: el.scrollHeight + 1000,
             behavior: 'smooth',
           }),
         );
-        await this.page.waitForTimeout(2000);
+        await this.page.waitForTimeout(1000);
+        await this.page.$eval('div._vertical-scroll-results_1igybl', (el) =>
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'smooth',
+          }),
+        );
+        await this.page.waitForTimeout(1000);
 
         const users_node = await this.page.$('ol.artdeco-list');
         const user_name = await users_node.$$eval(
@@ -235,22 +254,36 @@ export class BotService {
             location: user_location[item],
             link: user_link[item],
           });
+          all_users.push({
+            id: all_users.length + 1,
+            name: user_name[item],
+          });
         }
 
         this.socket.emit('sales', users_list);
-        // console.log('user_sales_navigator_list-> ', users_list);
         console.log('user_sales_navigator_list_length-> ', users_list.length);
         const is_disabled =
           (await this.page.$(
             'button.artdeco-button--disabled.artdeco-pagination__button--next',
           )) !== null;
         isBtnDisabled = is_disabled;
+        console.log('isBtnDisabled-> ', isBtnDisabled);
 
         if (!is_disabled) {
-          await this.page.click('button.artdeco-pagination__button--next');
-          await this.page.waitForTimeout(2000);
+          if (
+            (await this.page.$('button.artdeco-pagination__button--next')) !==
+            null
+          ) {
+            const button = await this.page.$(
+              'button.artdeco-pagination__button--next',
+            );
+            await button.evaluate((b) => b.click());
+            // await this.page.click('button.artdeco-pagination__button--next');
+            await this.page.waitForTimeout(2000);
+          }
         }
       }
+      console.log(all_users);
     });
 
     this.socket.on('sales', async ({ link }) => {
@@ -258,7 +291,6 @@ export class BotService {
         waitUntil: 'load',
         timeout: 0,
       });
-
       let isBtnDisabled = false;
       while (!isBtnDisabled) {
         await this.page.waitForSelector('main.scaffold-layout__main', {
@@ -332,6 +364,75 @@ export class BotService {
           await this.page.waitForTimeout(2000);
         }
       }
+    });
+
+    this.socket.on('connect_lead', async (data) => {
+      const list_done = [],
+        list_fail = [];
+
+      for (const list of data) {
+        await this.page.goto(list.link, { waitUntil: 'load', timeout: 0 });
+        try {
+          await this.page.waitForSelector('button[aria-label="More actions"]', {
+            timeout: 10000,
+          });
+          const more = await this.page.$$('button[aria-label="More actions"]');
+          await more[1].click();
+          const connect = await this.page.$$(
+            `button[aria-label="Invite ${list.name} to connect"]`,
+          );
+          if (connect.length > 0) {
+            await connect[1].click();
+            if (list.message !== '') {
+              await this.page.waitForTimeout(2500);
+              this.page.click('button[aria-label="Add a note"]');
+              await this.page.waitForTimeout(500);
+              await this.page.type(
+                'textarea.connect-button-send-invite__custom-message',
+                list.message,
+              );
+              await this.page.waitForTimeout(3500);
+              this.page.click('button[aria-label="Send now"]');
+              await this.page.waitForTimeout(3500);
+            } else {
+              this.page.click('button[aria-label="Send now"]');
+            }
+            list_done.push(list.link);
+          } else {
+            const connect_inner = await this.page.$$(
+              `div[aria-label="Invite ${list.name} to connect"]`,
+            );
+            if (connect_inner.length > 0) {
+              await connect_inner[1].click();
+              if (list.message !== '') {
+                await this.page.waitForTimeout(2500);
+                this.page.click('button[aria-label="Add a note"]');
+                await this.page.waitForTimeout(500);
+                await this.page.type(
+                  'textarea.connect-button-send-invite__custom-message',
+                  list.message,
+                );
+                await this.page.waitForTimeout(3500);
+                this.page.click('button[aria-label="Send now"]');
+                await this.page.waitForTimeout(3500);
+              } else {
+                await this.page.click('button[aria-label="Send now"]');
+              }
+              list_done.push(list.link);
+            } else {
+              list_fail.push(list.link);
+            }
+          }
+        } catch (error) {
+          list_fail.push(list.link);
+        }
+      }
+      console.log('list_done-> ', list_done);
+      console.log('list_fail-> ', list_fail);
+      this.socket.emit('connect_lead', {
+        list_done,
+        list_fail,
+      });
     });
   }
 }
