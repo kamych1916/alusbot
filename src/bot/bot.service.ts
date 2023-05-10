@@ -15,8 +15,10 @@ export class BotService {
   private page;
   // private email = 'vacompany.info@gmail.com';
   // private password = 'jfhy@u6EW!';
-  private email = 'krakhimov.it@gmail.com';
-  private password = 'kmwd1916';
+  // private email = 'krakhimov.it@gmail.com';
+  // private password = 'kmwd1916';
+  private email = 'zakharshatrov@gmail.com';
+  private password = 'gFqnxvTR2T';
 
   getProxyData() {
     axios.default
@@ -58,7 +60,7 @@ export class BotService {
     await this.page.type('input[name="session_password"]', this.password);
     await Promise.all([
       this.page.click('button[type=submit]'),
-      this.page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 0 }),
+      this.page.waitForNavigation({ timeout: 0 }),
     ]);
   }
 
@@ -133,7 +135,6 @@ export class BotService {
           });
         }
       }
-      console.log('statistics-> ', connections, stats_list, analytics_list);
 
       this.socket.emit('statistics', {
         data: {
@@ -141,6 +142,7 @@ export class BotService {
           stats_list,
           analytics_list,
         },
+        email: this.email,
       });
     });
 
@@ -351,8 +353,6 @@ export class BotService {
         }
 
         this.socket.emit('sales', users_list);
-        // console.log('user_sales_list-> ', users_list);
-        console.log('user_sales_list_length-> ', users_list.length);
 
         const is_disabled =
           (await this.page.$(
@@ -427,12 +427,73 @@ export class BotService {
           list_fail.push(list.link);
         }
       }
-      console.log('list_done-> ', list_done);
-      console.log('list_fail-> ', list_fail);
+
       this.socket.emit('connect_lead', {
-        list_done,
-        list_fail,
+        data: {
+          list_done,
+          list_fail,
+        },
+        email: this.email,
       });
+    });
+
+    this.socket.on('filter', async (data) => {
+      try {
+        await this.page.goto(
+          'https://www.linkedin.com/mynetwork/invite-connect/connections/',
+          {
+            waitUntil: 'load',
+            timeout: 0,
+          },
+        );
+        await this.page.waitForSelector('header.mn-connections__header', {
+          timeout: 10000,
+        });
+        await this.page.waitForSelector('html');
+
+        const non_followers = new Set();
+        let isEndList = false;
+        while (!isEndList) {
+          const users_node = await this.page.$(
+            'div.scaffold-finite-scroll__content > ul',
+          );
+          const user_name = await users_node.$$eval(
+            'span.mn-connection-card__name',
+            (nodes) => nodes.map((n) => n.innerText),
+          );
+          if (user_name.length > 0) {
+            for (const user of user_name) {
+              if (user === data.name_1 || user === data.name_2) {
+                isEndList = true;
+                break;
+              } else {
+                non_followers.add(user);
+              }
+            }
+            if (isEndList) {
+              break;
+            }
+            await this.page.$eval('html', (el) =>
+              el.scrollTo({
+                top: el.scrollHeight,
+                behavior: 'smooth',
+              }),
+            );
+            await this.page.waitForTimeout(3000);
+          } else {
+            isEndList = true;
+            break;
+          }
+        }
+        this.socket.emit('filter', {
+          data: {
+            non_followers: Array.from(non_followers),
+          },
+          email: this.email,
+        });
+      } catch (error) {
+        console.log('filter error -> ', error);
+      }
     });
   }
 }
