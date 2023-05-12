@@ -17,8 +17,11 @@ export class BotService {
   // private password = 'jfhy@u6EW!';
   // private email = 'krakhimov.it@gmail.com';
   // private password = 'kmwd1916';
-  private email = 'zakharshatrov@gmail.com';
-  private password = 'gFqnxvTR2T';
+  // private email = 'zakharshatrov@gmail.com';
+  // private password = 'gFqnxvTR2T';
+
+  private email = 'zabydia@gmail.com';
+  private password = 'tapbof1';
 
   getProxyData() {
     axios.default
@@ -369,6 +372,7 @@ export class BotService {
     this.socket.on('connect_lead', async (data) => {
       const list_done = [],
         list_fail = [];
+      let isLimit = false;
 
       for (const list of data) {
         await this.page.goto(list.link, { waitUntil: 'load', timeout: 0 });
@@ -395,7 +399,18 @@ export class BotService {
               this.page.click('button[aria-label="Send now"]');
               await this.page.waitForTimeout(3500);
             } else {
-              this.page.click('button[aria-label="Send now"]');
+              await this.page.waitForTimeout(2500);
+              await Promise.all([
+                this.page.click('button[aria-label="Send now"]'),
+              ]);
+            }
+
+            await this.page.waitForTimeout(3500);
+            const modalLimit = await this.page.$(
+              '.artdeco-modal--layer-default',
+            );
+            if (modalLimit) {
+              isLimit = true;
             }
             list_done.push(list.link);
           } else {
@@ -416,7 +431,17 @@ export class BotService {
                 this.page.click('button[aria-label="Send now"]');
                 await this.page.waitForTimeout(3500);
               } else {
-                await this.page.click('button[aria-label="Send now"]');
+                await this.page.waitForTimeout(2500);
+                await Promise.all([
+                  this.page.click('button[aria-label="Send now"]'),
+                ]);
+              }
+              await this.page.waitForTimeout(3500);
+              const modalLimit = await this.page.$(
+                '.artdeco-modal--layer-default',
+              );
+              if (modalLimit) {
+                isLimit = true;
               }
               list_done.push(list.link);
             } else {
@@ -424,14 +449,15 @@ export class BotService {
             }
           }
         } catch (error) {
+          console.log('error connect_lead -> ', error);
           list_fail.push(list.link);
         }
       }
-
       this.socket.emit('connect_lead', {
         data: {
           list_done,
           list_fail,
+          isLimit,
         },
         email: this.email,
       });
