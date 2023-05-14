@@ -5,9 +5,6 @@ import { validatorDto } from 'src/dtos/validator.dto';
 import puppeteer from 'puppeteer';
 import { io } from 'socket.io-client';
 
-const link_navigator =
-  'https://www.linkedin.com/sales/search/people?query=(recentSearchParam%3A(id%3A2405141842%2CdoLogHistory%3Atrue)%2CspellCorrectionEnabled%3Atrue%2Cfilters%3AList((type%3AREGION%2Cvalues%3AList((id%3A104994045%2Ctext%3AMoscow%2520City%252C%2520Russia%2CselectionType%3AINCLUDED))))%2Ckeywords%3AAhmed)&sessionId=3folXQzxTW%2BBpO9YbK1Q3Q%3D%3D';
-
 @Injectable()
 export class BotService {
   private socket;
@@ -15,13 +12,13 @@ export class BotService {
   private page;
   // private email = 'vacompany.info@gmail.com';
   // private password = 'jfhy@u6EW!';
-  // private email = 'krakhimov.it@gmail.com';
-  // private password = 'kmwd1916';
+  private email = 'krakhimov.it@gmail.com';
+  private password = 'kmwd1916';
   // private email = 'zakharshatrov@gmail.com';
   // private password = 'gFqnxvTR2T';
 
-  private email = 'zabydia@gmail.com';
-  private password = 'tapbof1';
+  // private email = 'zabydia@gmail.com';
+  // private password = 'tapbof1';
 
   getProxyData() {
     axios.default
@@ -520,6 +517,69 @@ export class BotService {
       } catch (error) {
         console.log('filter error -> ', error);
       }
+    });
+
+    this.socket.on('friends_message', async (data) => {
+      const list_done = [],
+        list_fail = [];
+      await this.page.goto(
+        'https://www.linkedin.com/mynetwork/invite-connect/connections/',
+        {
+          waitUntil: 'load',
+          timeout: 0,
+        },
+      );
+      await this.page.waitForSelector('html');
+      await this.page.waitForSelector('input.mn-connections__search-input');
+      for (const item of data) {
+        try {
+          const listMessagesBox = await this.page.$$(
+            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+          );
+          if (listMessagesBox.length > 0) {
+            listMessagesBox.filter((item, index) => index % 2);
+            for (const box of listMessagesBox) {
+              box.click();
+            }
+          }
+          const searchInput = await this.page.$(
+            'input.mn-connections__search-input',
+          );
+          await this.page.$eval(
+            'input.mn-connections__search-input',
+            (el) => (el.value = ''),
+          );
+          await this.page.waitForTimeout(2500);
+          await searchInput.type(item.name);
+          await this.page.waitForTimeout(4500);
+          await Promise.all([
+            this.page.click(
+              `button[aria-label="Send a message to ${item.name}"]`,
+            ),
+          ]);
+          await this.page.waitForTimeout(2500);
+          await this.page.type('div.msg-form__contenteditable', item.message);
+          await this.page.waitForTimeout(2500);
+          await Promise.all([this.page.click('button.msg-form__send-button')]);
+          list_done.push(item.name);
+          await this.page.waitForTimeout(2500);
+          const messageBox = await this.page.$$(
+            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+          );
+          messageBox[1].click();
+          await this.page.waitForTimeout(2500);
+        } catch (error) {
+          console.log('что то не так -> ', error);
+          list_fail.push(item.name);
+        }
+      }
+      this.socket.emit('friends_message', {
+        data: {
+          list_done,
+          list_fail,
+        },
+        email: this.email,
+      });
     });
   }
 }
