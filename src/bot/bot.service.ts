@@ -29,7 +29,85 @@ export class BotService {
         await validatorDto(BotDto, res.data);
         this.startBot(res.data)
           .then(async () => {
-            this.startSockets();
+            // this.startSockets();
+            // если нет диалога то отправляем его в фейл
+            // достать последнее сообщение чела
+            // если ничего не ответил то в фейл его
+            await this.page.goto('https://www.linkedin.com/messaging', {
+              waitUntil: 'load',
+              timeout: 0,
+            });
+            await this.page.waitForSelector('html');
+            await this.page.waitForSelector(
+              'div.msg-conversations-container__title-row',
+            );
+            // msg-search-form__search-field
+            const searchInput = await this.page.$(
+              'input.msg-search-form__search-field',
+            );
+            await searchInput.type('Tiet');
+            await this.page.keyboard.press('Enter');
+            await this.page.waitForTimeout(4500);
+            await this.page.click(
+              '.msg-conversations-container__convo-item-link',
+            );
+            await this.page.waitForTimeout(4500);
+
+            const lastHeight = await this.page.$('div.msg-s-message-list');
+
+            while (true) {
+              await this.page.evaluate(
+                'document.querySelector("div.msg-s-message-list").scrollTop = - document.querySelector("div.msg-s-message-list").scrollHeight',
+              );
+              await this.page.waitForTimeout(2000); // sleep a bit
+
+              const newHeight = await this.page.$('div.msg-s-message-list');
+              if (newHeight.scrollHeight === lastHeight.scrollHeight) {
+                break;
+              }
+              lastHeight.scrollHeight = newHeight.scrollHeight;
+            }
+            console.log('kek');
+            // msg-s-message-list-content
+            const node_list = await this.page.$(
+              'ul.msg-s-message-list-content',
+            );
+            const user_name = await node_list.$$eval(
+              'span.msg-s-message-group__name',
+              (nodes) => nodes.map((n) => n.innerText),
+            );
+            const user_message = await node_list.$$eval(
+              'div.msg-s-event-listitem__message-bubble',
+              (nodes) => nodes.map((n) => n.innerText),
+            );
+
+            const user_message_list = await node_list.$$(
+              'li.msg-s-message-list__event',
+            );
+            console.log(user_message_list[0].textContent);
+            console.log(user_message_list);
+
+            const messages_list = [];
+            // if (user_message.length > 0) {
+            //   for (const item in user_message) {
+            //     const user_meta = await node_list.$eval(
+            //       'div.msg-s-message-group__meta',
+            //       (e) => e.innerText,
+            //     );
+            //     if (user_meta) {
+            //       messages_list.push({
+            //         name: user_name[item] ? user_name[item] : '',
+            //         message: user_message[item],
+            //       });
+            //     } else {
+            //       messages_list.push({
+            //         name: 'kek',
+            //         message: user_message[item],
+            //       });
+            //     }
+            //   }
+            // }
+            console.log(messages_list);
           })
           .catch((err) => {
             console.log('startBot error-> ', err);
