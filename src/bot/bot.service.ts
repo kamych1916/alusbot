@@ -29,85 +29,7 @@ export class BotService {
         await validatorDto(BotDto, res.data);
         this.startBot(res.data)
           .then(async () => {
-            // this.startSockets();
-            // если нет диалога то отправляем его в фейл
-            // достать последнее сообщение чела
-            // если ничего не ответил то в фейл его
-            await this.page.goto('https://www.linkedin.com/messaging', {
-              waitUntil: 'load',
-              timeout: 0,
-            });
-            await this.page.waitForSelector('html');
-            await this.page.waitForSelector(
-              'div.msg-conversations-container__title-row',
-            );
-            // msg-search-form__search-field
-            const searchInput = await this.page.$(
-              'input.msg-search-form__search-field',
-            );
-            await searchInput.type('Tiet');
-            await this.page.keyboard.press('Enter');
-            await this.page.waitForTimeout(4500);
-            await this.page.click(
-              '.msg-conversations-container__convo-item-link',
-            );
-            await this.page.waitForTimeout(4500);
-
-            const lastHeight = await this.page.$('div.msg-s-message-list');
-
-            while (true) {
-              await this.page.evaluate(
-                'document.querySelector("div.msg-s-message-list").scrollTop = - document.querySelector("div.msg-s-message-list").scrollHeight',
-              );
-              await this.page.waitForTimeout(2000); // sleep a bit
-
-              const newHeight = await this.page.$('div.msg-s-message-list');
-              if (newHeight.scrollHeight === lastHeight.scrollHeight) {
-                break;
-              }
-              lastHeight.scrollHeight = newHeight.scrollHeight;
-            }
-            console.log('kek');
-            // msg-s-message-list-content
-            const node_list = await this.page.$(
-              'ul.msg-s-message-list-content',
-            );
-            const user_name = await node_list.$$eval(
-              'span.msg-s-message-group__name',
-              (nodes) => nodes.map((n) => n.innerText),
-            );
-            const user_message = await node_list.$$eval(
-              'div.msg-s-event-listitem__message-bubble',
-              (nodes) => nodes.map((n) => n.innerText),
-            );
-
-            const user_message_list = await node_list.$$(
-              'li.msg-s-message-list__event',
-            );
-            console.log(user_message_list[0].textContent);
-            console.log(user_message_list);
-
-            const messages_list = [];
-            // if (user_message.length > 0) {
-            //   for (const item in user_message) {
-            //     const user_meta = await node_list.$eval(
-            //       'div.msg-s-message-group__meta',
-            //       (e) => e.innerText,
-            //     );
-            //     if (user_meta) {
-            //       messages_list.push({
-            //         name: user_name[item] ? user_name[item] : '',
-            //         message: user_message[item],
-            //       });
-            //     } else {
-            //       messages_list.push({
-            //         name: 'kek',
-            //         message: user_message[item],
-            //       });
-            //     }
-            //   }
-            // }
-            console.log(messages_list);
+            this.startSockets();
           })
           .catch((err) => {
             console.log('startBot error-> ', err);
@@ -652,6 +574,115 @@ export class BotService {
         }
       }
       this.socket.emit('friends_message', {
+        data: {
+          list_done,
+          list_fail,
+        },
+        email: this.email,
+      });
+    });
+
+    this.socket.on('info', async () => {
+      this.socket.emit('connect_email', { email: this.email });
+    });
+
+    this.socket.on('check_messages', async (data) => {
+      await this.page.goto('https://www.linkedin.com/messaging', {
+        waitUntil: 'load',
+        timeout: 0,
+      });
+      await this.page.waitForSelector('html');
+      await this.page.waitForSelector(
+        'div.msg-conversations-container__title-row',
+      );
+      const clients = data;
+      const list_done = [];
+      const list_fail = [];
+      for (const client of clients) {
+        const searchInput = await this.page.$(
+          'input.msg-search-form__search-field',
+        );
+        await this.page.$eval(
+          'input.msg-search-form__search-field',
+          (el) => (el.value = ''),
+        );
+        await this.page.waitForTimeout(2500);
+        await searchInput.type(client);
+        await this.page.keyboard.press('Enter');
+        await this.page.waitForTimeout(4500);
+        try {
+          await this.page.click(
+            '.msg-conversations-container__convo-item-link',
+          );
+          await this.page.waitForTimeout(4500);
+
+          const lastHeight = await this.page.$('div.msg-s-message-list');
+
+          while (true) {
+            await this.page.evaluate(
+              'document.querySelector("div.msg-s-message-list").scrollTop = - document.querySelector("div.msg-s-message-list").scrollHeight',
+            );
+            await this.page.waitForTimeout(2000);
+            const newHeight = await this.page.$('div.msg-s-message-list');
+            if (newHeight.scrollHeight === lastHeight.scrollHeight) {
+              break;
+            }
+            lastHeight.scrollHeight = newHeight.scrollHeight;
+          }
+
+          const node_list = await this.page.$('ul.msg-s-message-list-content');
+          const user_message = await node_list.$$eval(
+            'div.msg-s-event-listitem__message-bubble',
+            (nodes) => nodes.map((n) => n.innerText),
+          );
+          const messages_list = await node_list.$$(
+            'li.msg-s-message-list__event',
+          );
+
+          const store = [];
+          if (user_message.length > 0) {
+            for (const item in messages_list.reverse()) {
+              let name = '';
+              try {
+                name = await messages_list[item].$eval(
+                  'span.msg-s-message-group__name',
+                  (e) => e.innerText,
+                );
+              } catch (error) {
+                name = '';
+              }
+
+              let message = '';
+              try {
+                message = await messages_list[item].$eval(
+                  'div.msg-s-event-listitem__message-bubble',
+                  (e) => e.innerText,
+                );
+              } catch (error) {
+                message = '';
+              }
+
+              if (message !== '') {
+                store.push({
+                  name: name,
+                  message: message,
+                });
+              }
+              if (name.includes(client)) {
+                break;
+              }
+            }
+          }
+          list_done.push({
+            name: client,
+            messages: store,
+          });
+        } catch (error) {
+          list_fail.push(client);
+        }
+      }
+
+      this.socket.emit('check_messages', {
         data: {
           list_done,
           list_fail,
