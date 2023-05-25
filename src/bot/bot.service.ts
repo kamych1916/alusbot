@@ -5,20 +5,15 @@ import { validatorDto } from 'src/dtos/validator.dto';
 import puppeteer from 'puppeteer';
 import { io } from 'socket.io-client';
 
+const link_navigator =
+  'https://www.linkedin.com/sales/search/people?query=(recentSearchParam%3A(id%3A2405141842%2CdoLogHistory%3Atrue)%2CspellCorrectionEnabled%3Atrue%2Cfilters%3AList((type%3AREGION%2Cvalues%3AList((id%3A104994045%2Ctext%3AMoscow%2520City%252C%2520Russia%2CselectionType%3AINCLUDED))))%2Ckeywords%3AAhmed)&sessionId=3folXQzxTW%2BBpO9YbK1Q3Q%3D%3D';
+
 @Injectable()
 export class BotService {
   private socket;
   private browser;
   private page;
-  // private email = 'vacompany.info@gmail.com';
-  // private password = 'jfhy@u6EW!';
-  private email = 'krakhimov.it@gmail.com';
-  private password = 'kmwd1916';
-  // private email = 'zakharshatrov@gmail.com';
-  // private password = 'gFqnxvTR2T';
-
-  // private email = 'zabydia@gmail.com';
-  // private password = 'tapbof1';
+  private email = process.env.EMAIL_ACCOUNT;
 
   getProxyData() {
     axios.default
@@ -57,7 +52,10 @@ export class BotService {
     });
 
     await this.page.type('input[name="session_key"]', this.email);
-    await this.page.type('input[name="session_password"]', this.password);
+    await this.page.type(
+      'input[name="session_password"]',
+      proxyData.user_passwrod,
+    );
     await Promise.all([
       this.page.click('button[type=submit]'),
       this.page.waitForNavigation({ timeout: 0 }),
@@ -262,7 +260,7 @@ export class BotService {
           });
         }
 
-        this.socket.emit('sales', users_list);
+        this.socket.emit('sales_navigator', users_list);
         console.log('user_sales_navigator_list_length-> ', users_list.length);
         const is_disabled =
           (await this.page.$(
@@ -370,65 +368,86 @@ export class BotService {
       const list_done = [],
         list_fail = [];
       let isLimit = false;
-
       for (const list of data) {
+        if (isLimit) {
+          break;
+        }
         await this.page.goto(list.link, { waitUntil: 'load', timeout: 0 });
         try {
+          await this.page.waitForTimeout(10000);
           await this.page.waitForSelector('button[aria-label="More actions"]', {
             timeout: 10000,
           });
+          await this.page.waitForTimeout(10000);
           const more = await this.page.$$('button[aria-label="More actions"]');
           await more[1].click();
           const connect = await this.page.$$(
             `button[aria-label="Invite ${list.name} to connect"]`,
           );
+          await this.page.waitForTimeout(5000);
           if (connect.length > 0) {
             await connect[1].click();
             if (list.message !== '') {
-              await this.page.waitForTimeout(2500);
-              this.page.click('button[aria-label="Add a note"]');
-              await this.page.waitForTimeout(500);
+              await this.page.waitForTimeout(10000);
+              try {
+                await Promise.all([
+                  this.page.click('button[aria-label="Add a note"]'),
+                ]);
+              } catch (error) {
+                list_fail.push(list.link);
+              }
+              await this.page.waitForTimeout(3000);
               await this.page.type(
                 'textarea.connect-button-send-invite__custom-message',
                 list.message,
               );
-              await this.page.waitForTimeout(3500);
-              this.page.click('button[aria-label="Send now"]');
-              await this.page.waitForTimeout(3500);
+              await this.page.waitForTimeout(5000);
+              await Promise.all([
+                this.page.click('button[aria-label="Send now"]'),
+              ]);
+              await this.page.waitForTimeout(5000);
             } else {
-              await this.page.waitForTimeout(2500);
+              await this.page.waitForTimeout(7000);
               await Promise.all([
                 this.page.click('button[aria-label="Send now"]'),
               ]);
             }
-
             await this.page.waitForTimeout(3500);
             const modalLimit = await this.page.$(
               '.artdeco-modal--layer-default',
             );
             if (modalLimit) {
               isLimit = true;
+              list_fail.push(list.link);
+            } else {
+              list_done.push(list.link);
             }
-            list_done.push(list.link);
           } else {
             const connect_inner = await this.page.$$(
               `div[aria-label="Invite ${list.name} to connect"]`,
             );
             if (connect_inner.length > 0) {
               await connect_inner[1].click();
+              await this.page.waitForTimeout(3500);
               if (list.message !== '') {
-                await this.page.waitForTimeout(2500);
-                this.page.click('button[aria-label="Add a note"]');
-                await this.page.waitForTimeout(500);
+                await this.page.waitForTimeout(5000);
+                try {
+                  await Promise.all([
+                    this.page.click('button[aria-label="Add a note"]'),
+                  ]);
+                } catch (error) {
+                  list_fail.push(list.link);
+                }
+                await this.page.waitForTimeout(5000);
                 await this.page.type(
                   'textarea.connect-button-send-invite__custom-message',
                   list.message,
                 );
-                await this.page.waitForTimeout(3500);
+                await this.page.waitForTimeout(5000);
                 this.page.click('button[aria-label="Send now"]');
                 await this.page.waitForTimeout(3500);
               } else {
-                await this.page.waitForTimeout(2500);
+                await this.page.waitForTimeout(7000);
                 await Promise.all([
                   this.page.click('button[aria-label="Send now"]'),
                 ]);
@@ -439,22 +458,95 @@ export class BotService {
               );
               if (modalLimit) {
                 isLimit = true;
+                list_fail.push(list.link);
+              } else {
+                list_done.push(list.link);
               }
-              list_done.push(list.link);
             } else {
               list_fail.push(list.link);
             }
           }
         } catch (error) {
-          console.log('error connect_lead -> ', error);
           list_fail.push(list.link);
         }
       }
+
       this.socket.emit('connect_lead', {
         data: {
           list_done,
           list_fail,
-          isLimit,
+        },
+        isLimit: isLimit,
+        email: this.email,
+      });
+    });
+
+    this.socket.on('friends_message', async (data) => {
+      const list_done = [],
+        list_fail = [];
+      await this.page.goto(
+        'https://www.linkedin.com/mynetwork/invite-connect/connections/',
+        {
+          waitUntil: 'load',
+          timeout: 0,
+        },
+      );
+      await this.page.waitForSelector('html');
+      await this.page.waitForSelector('input.mn-connections__search-input');
+      await this.page.waitForSelector(
+        '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+      );
+      for (const item of data) {
+        try {
+          const listButtonsBox = await this.page.$$(
+            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+          );
+          if (listButtonsBox.length > 0) {
+            const listCloseButtons = listButtonsBox.filter(
+              (item, index) => index % 2,
+            );
+            for (const item of listCloseButtons) {
+              const listButtonsBox = await this.page.$$(
+                '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+              );
+              await Promise.all([listButtonsBox[1].click()]);
+            }
+          }
+          const searchInput = await this.page.$(
+            'input.mn-connections__search-input',
+          );
+          await this.page.$eval(
+            'input.mn-connections__search-input',
+            (el) => (el.value = ''),
+          );
+          await this.page.waitForTimeout(2500);
+          await searchInput.type(item.name);
+          await this.page.waitForTimeout(4500);
+          await Promise.all([
+            this.page.click(
+              `button[aria-label="Send a message to ${item.name}"]`,
+            ),
+          ]);
+          await this.page.waitForTimeout(2500);
+          await this.page.type('div.msg-form__contenteditable', item.message);
+          await this.page.waitForTimeout(2500);
+          await Promise.all([this.page.click('button.msg-form__send-button')]);
+          list_done.push(item.name);
+          await this.page.waitForTimeout(2500);
+          const messageBox = await this.page.$$(
+            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+          );
+          messageBox[1].click();
+          await this.page.waitForTimeout(2500);
+        } catch (error) {
+          console.log('что то не так -> ', error);
+          list_fail.push(item.name);
+        }
+      }
+      this.socket.emit('friends_message', {
+        data: {
+          list_done,
+          list_fail,
         },
         email: this.email,
       });
@@ -519,73 +611,6 @@ export class BotService {
       }
     });
 
-    this.socket.on('friends_message', async (data) => {
-      const list_done = [],
-        list_fail = [];
-      await this.page.goto(
-        'https://www.linkedin.com/mynetwork/invite-connect/connections/',
-        {
-          waitUntil: 'load',
-          timeout: 0,
-        },
-      );
-      await this.page.waitForSelector('html');
-      await this.page.waitForSelector('input.mn-connections__search-input');
-      for (const item of data) {
-        try {
-          const listMessagesBox = await this.page.$$(
-            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
-          );
-          if (listMessagesBox.length > 0) {
-            listMessagesBox.filter((item, index) => index % 2);
-            for (const box of listMessagesBox) {
-              box.click();
-            }
-          }
-          const searchInput = await this.page.$(
-            'input.mn-connections__search-input',
-          );
-          await this.page.$eval(
-            'input.mn-connections__search-input',
-            (el) => (el.value = ''),
-          );
-          await this.page.waitForTimeout(2500);
-          await searchInput.type(item.name);
-          await this.page.waitForTimeout(4500);
-          await Promise.all([
-            this.page.click(
-              `button[aria-label="Send a message to ${item.name}"]`,
-            ),
-          ]);
-          await this.page.waitForTimeout(2500);
-          await this.page.type('div.msg-form__contenteditable', item.message);
-          await this.page.waitForTimeout(2500);
-          await Promise.all([this.page.click('button.msg-form__send-button')]);
-          list_done.push(item.name);
-          await this.page.waitForTimeout(2500);
-          const messageBox = await this.page.$$(
-            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
-          );
-          messageBox[1].click();
-          await this.page.waitForTimeout(2500);
-        } catch (error) {
-          console.log('что то не так -> ', error);
-          list_fail.push(item.name);
-        }
-      }
-      this.socket.emit('friends_message', {
-        data: {
-          list_done,
-          list_fail,
-        },
-        email: this.email,
-      });
-    });
-
-    this.socket.on('info', async () => {
-      this.socket.emit('connect_email', { email: this.email });
-    });
-
     this.socket.on('check_messages', async (data) => {
       await this.page.goto('https://www.linkedin.com/messaging', {
         waitUntil: 'load',
@@ -608,6 +633,7 @@ export class BotService {
         );
         await this.page.waitForTimeout(2500);
         await searchInput.type(client);
+        await this.page.waitForTimeout(5000);
         await this.page.keyboard.press('Enter');
         await this.page.waitForTimeout(4500);
         try {
@@ -689,6 +715,10 @@ export class BotService {
         },
         email: this.email,
       });
+    });
+
+    this.socket.on('info', async () => {
+      this.socket.emit('connect_email', { email: this.email });
     });
   }
 }

@@ -12,4 +12,8 @@ export class BotDto {
   @IsString()
   @IsNotEmpty()
   public password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  public user_passwrod: string;
 }
