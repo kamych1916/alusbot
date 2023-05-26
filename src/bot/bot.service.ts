@@ -493,25 +493,32 @@ export class BotService {
       );
       await this.page.waitForSelector('html');
       await this.page.waitForSelector('input.mn-connections__search-input');
-      await this.page.waitForSelector(
-        '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
-      );
+      await this.page.waitForTimeout(2500);
+
       for (const item of data) {
         try {
           const listButtonsBox = await this.page.$$(
-            '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
+            '.msg-overlay-bubble-header__control',
+          );
+          const listButtonsBox_text = await this.page.$$eval(
+            '.msg-overlay-bubble-header__control',
+            (nodes) => {
+              return nodes.map((node) => node.textContent);
+            },
           );
           if (listButtonsBox.length > 0) {
-            const listCloseButtons = listButtonsBox.filter(
-              (item, index) => index % 2,
-            );
-            for (const item of listCloseButtons) {
-              const listButtonsBox = await this.page.$$(
-                '.msg-convo-wrapper button.msg-overlay-bubble-header__control',
-              );
-              await Promise.all([listButtonsBox[1].click()]);
+            for (const box in listButtonsBox) {
+              if (
+                listButtonsBox_text[box].includes(
+                  'Close your conversation with',
+                )
+              ) {
+                await this.page.waitForTimeout(1500);
+                listButtonsBox[box].click();
+              }
             }
           }
+
           const searchInput = await this.page.$(
             'input.mn-connections__search-input',
           );
