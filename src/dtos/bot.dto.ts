@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsNumber, IsString } from 'class-validator';
 
 export class BotDto {
   @IsString()
@@ -16,4 +16,11 @@ export class BotDto {
   @IsString()
   @IsNotEmpty()
   public user_passwrod: string;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  public twofa: boolean;
+
+  @IsString()
+  public code: string;
 }
