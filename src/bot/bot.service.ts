@@ -138,13 +138,10 @@ export class BotService {
         // GET ANALYTICS
         const analytics_list = [];
         if (link_organization) {
-          await this.page.goto(
-            'https://www.linkedin.com/company/90807544/admin/',
-            {
-              waitUntil: 'load',
-              timeout: 0,
-            },
-          );
+          await this.page.goto(link_organization, {
+            waitUntil: 'load',
+            timeout: 0,
+          });
           await this.page.waitForSelector('aside.scaffold-layout__aside');
           const analytics_node = await this.page.$(
             'aside.scaffold-layout__aside',
@@ -625,19 +622,19 @@ export class BotService {
             console.log('что то не так -> ', error);
             list_fail.push(item.name);
           }
-        } 
+        }
         this.socket.emit('friends_message', {
           data: {
             list_done,
             list_fail,
-          }, 
+          },
           email: this.email,
         });
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
         });
-      } 
+      }
     });
 
     this.socket.on('filter', async (data) => {
@@ -810,7 +807,7 @@ export class BotService {
             list_done,
             list_fail,
           },
-          email: this.email
+          email: this.email,
         });
       } catch (error) {
         console.log(error);
