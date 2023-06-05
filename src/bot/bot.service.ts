@@ -54,6 +54,7 @@ export class BotService {
             console.log('startBot error-> ', error);
             axios.default.post('http://bot.midera.fun:8000/server/errors', {
               error,
+              email: this.email,
             });
           });
       })
@@ -63,6 +64,7 @@ export class BotService {
   }
 
   async startBot(proxyData: BotDto) {
+    console.log(this.email);
     this.browser = await puppeteer.launch({
       headless: false,
       timeout: 0,
@@ -91,53 +93,6 @@ export class BotService {
   }
 
   async startSockets() {
-    // await this.page.goto(
-    //   'https://www.linkedin.com/mynetwork/invitation-manager/sent/',
-    //   {
-    //     waitUntil: 'load',
-    //     timeout: 0,
-    //   },
-    // );
-    // await this.page.waitForSelector('html');
-
-    // await this.page.$eval('html', (el) =>
-    //   el.scrollTo({
-    //     top: el.scrollHeight,
-    //     behavior: 'smooth',
-    //   }),
-    // );
-    // await this.page.waitForSelector('ul.mn-invitation-list', {
-    //   timeout: 20000,
-    // });
-    // await this.page.waitForTimeout(2000);
-    // const users_node = await this.page.$('ul.mn-invitation-list');
-    // const users_list = await users_node.$$('li.artdeco-list__item');
-    // const user_time = await users_node.$$eval('time.time-badge', (nodes) =>
-    //   nodes.map((n) => n.innerText),
-    // );
-
-    // for (const item in user_time) {
-    //   console.log(item);
-    //   if (user_time[item] === '1 month ago') {
-    //     await this.page.$eval('html', (el) =>
-    //       el.scrollTo({
-    //         top: el.scrollHeight,
-    //         behavior: 'smooth',
-    //       }),
-    //     );
-    //     await this.page.waitForTimeout(2000);
-    //     await users_list[item].$eval(
-    //       'button.invitation-card__action-btn',
-    //       (e) => e.click(),
-    //     );
-    //     await this.page.waitForSelector('button.artdeco-button--primary', {
-    //       timeout: 10000,
-    //     });
-    //     await this.page.waitForTimeout(2000);
-    //     await Promise.all([this.page.click('button.artdeco-button--primary')]);
-    //   }
-    // }
-
     this.socket = io('https://bot.midera.fun', {
       transports: ['websocket'],
     });
@@ -220,6 +175,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -370,6 +326,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -455,6 +412,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -583,6 +541,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -680,6 +639,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -745,6 +705,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -860,6 +821,7 @@ export class BotService {
         console.log(error);
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -974,6 +936,7 @@ export class BotService {
       } catch (error) {
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
         });
       }
     });
@@ -1045,6 +1008,98 @@ export class BotService {
         console.log(error);
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
           error,
+          email: this.email,
+        });
+      }
+    });
+
+    this.socket.on('withdraw', async () => {
+      try {
+        await this.page.goto(
+          'https://www.linkedin.com/mynetwork/invitation-manager/sent/',
+          {
+            waitUntil: 'load',
+            timeout: 0,
+          },
+        );
+        await this.page.waitForSelector('html');
+
+        await this.page.waitForTimeout(2000);
+
+        let isBtnDisabled = false;
+        while (!isBtnDisabled) {
+          await this.page.$eval('html', (el) =>
+            el.scrollTo({
+              top: el.scrollHeight / 2.2,
+              behavior: 'smooth',
+            }),
+          );
+          await this.page.waitForTimeout(2000);
+          await this.page.$eval('html', (el) =>
+            el.scrollTo({
+              top: el.scrollHeight,
+              behavior: 'smooth',
+            }),
+          );
+          await this.page.waitForSelector('ul.mn-invitation-list', {
+            timeout: 20000,
+          });
+          await this.page.waitForTimeout(2000);
+          const users_node = await this.page.$('ul.mn-invitation-list');
+          const users_list = await users_node.$$('li.artdeco-list__item');
+          const user_time = await users_node.$$eval(
+            'time.time-badge',
+            (nodes) => nodes.map((n) => n.innerText),
+          );
+
+          for (const item in user_time) {
+            if (user_time[item].includes('month')) {
+              await this.page.waitForTimeout(5000);
+              await users_list[item].$eval(
+                'button.invitation-card__action-btn',
+                (e) => e.click(),
+              );
+              await this.page.waitForSelector(
+                'button.artdeco-button--primary',
+                {
+                  timeout: 10000,
+                },
+              );
+              await this.page.waitForTimeout(5000);
+              await Promise.all([
+                this.page.click('button.artdeco-button--primary'),
+              ]);
+            }
+          }
+          if ((await this.page.$('.mn-invitation-pagination')) !== null) {
+            const is_disabled =
+              (await this.page.$(
+                'button.artdeco-button--disabled.artdeco-pagination__button--next',
+              )) !== null;
+            isBtnDisabled = is_disabled;
+
+            if (!is_disabled) {
+              if (
+                (await this.page.$(
+                  'button.artdeco-pagination__button--next',
+                )) !== null
+              ) {
+                const button = await this.page.$(
+                  'button.artdeco-pagination__button--next',
+                );
+                await button.evaluate((b) => b.click());
+                await this.page.waitForTimeout(2000);
+              }
+            }
+          } else {
+            isBtnDisabled = false;
+          }
+        }
+      } catch (error) {
+        console.log(error);
+        axios.default.post('http://bot.midera.fun:8000/server/errors', {
+          error,
+          email: this.email,
         });
       }
     });
