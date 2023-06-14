@@ -97,17 +97,12 @@ export class BotService {
       transports: ['websocket'],
     });
 
-    // profile-creator-shared-content-view__footer-actions
-    // if (
-    //   (await this.page.$('button.artdeco-pagination__button--next')) !==
-    //   null
-    // )
     try {
       const response = [
         {
           link: 'https://www.linkedin.com/in/veronicaalus/',
-          count_like: 1,
-          comments: ['test'],
+          count_like: 2,
+          comments: ['test1', 'test2'],
         },
       ];
       for (const client of response) {
@@ -126,8 +121,6 @@ export class BotService {
             'footer.profile-creator-shared-content-view__footer-actions',
           )) !== null;
 
-        console.log(have_posts);
-
         if (have_posts) {
           const show_posts = await this.page.$(
             'footer.profile-creator-shared-content-view__footer-actions > a',
@@ -135,28 +128,30 @@ export class BotService {
           await show_posts.evaluate((b) => b.click());
           await this.page.waitForNavigation({ timeout: 0 });
 
-          await this.page.waitForTimeout(4000);
+          await this.page.waitForTimeout(5000);
 
-          const like_button = await this.page.$$('.react-button__trigger');
-          console.log(like_button);
+          const like_buttons = await this.page.$$(
+            'button.react-button__trigger',
+          );
           for (let item = 0; item < client.count_like; item++) {
-            console.log('lol');
-            await like_button[item].click();
+            await like_buttons[item].evaluate((b) => b.click());
             await this.page.waitForTimeout(4000);
             if (client.comments.length > 0) {
               const comment_button = await this.page.$$('.comment-button');
-              await comment_button[item].click();
-              await this.page.waitForTimeout(2000);
+              await comment_button[item].evaluate((b) => b.click());
+              await this.page.waitForTimeout(5000);
 
-              await this.page.evaluate(() => {
-                const newtext = document.createTextNode(client.comments[item]);
+              const comment = client.comments[item];
+              this.page.evaluate((text) => {
+                const newtext = document.createTextNode(text);
                 document.querySelector('.ql-editor > p').appendChild(newtext);
-              });
+              }, comment);
+
               await this.page.waitForTimeout(2000);
               const post_button = await this.page.$(
                 'button.comments-comment-box__submit-button',
               );
-              await post_button.click();
+              await post_button.evaluate((b) => b.click());
               await this.page.waitForTimeout(2000);
               await this.page.$eval('form.comments-comment-box__form', (el) =>
                 el.remove(),
