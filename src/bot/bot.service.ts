@@ -97,6 +97,76 @@ export class BotService {
       transports: ['websocket'],
     });
 
+    // profile-creator-shared-content-view__footer-actions
+    // if (
+    //   (await this.page.$('button.artdeco-pagination__button--next')) !==
+    //   null
+    // )
+    try {
+      const response = [
+        {
+          link: 'https://www.linkedin.com/in/veronicaalus/',
+          count_like: 1,
+          comments: ['test'],
+        },
+      ];
+      for (const client of response) {
+        await this.page.goto(client.link, {
+          waitUntil: 'load',
+          timeout: 0,
+        });
+        await this.page.waitForSelector('html');
+        await this.page.$eval('html', (el) => {
+          el.querySelector('body').style.zoom = 0.7;
+        });
+        await this.page.waitForTimeout(4000);
+
+        const have_posts =
+          (await this.page.$(
+            'footer.profile-creator-shared-content-view__footer-actions',
+          )) !== null;
+
+        console.log(have_posts);
+
+        if (have_posts) {
+          const show_posts = await this.page.$(
+            'footer.profile-creator-shared-content-view__footer-actions > a',
+          );
+          await show_posts.evaluate((b) => b.click());
+          await this.page.waitForNavigation({ timeout: 0 });
+
+          await this.page.waitForTimeout(4000);
+
+          const like_button = await this.page.$$('.react-button__trigger');
+          console.log(like_button);
+          for (let item = 0; item < client.count_like; item++) {
+            console.log('lol');
+            await like_button[item].click();
+            await this.page.waitForTimeout(4000);
+            if (client.comments.length > 0) {
+              const comment_button = await this.page.$$('.comment-button');
+              await comment_button[item].click();
+              await this.page.waitForTimeout(2000);
+
+              await this.page.evaluate(() => {
+                const newtext = document.createTextNode(client.comments[item]);
+                document.querySelector('.ql-editor > p').appendChild(newtext);
+              });
+              await this.page.waitForTimeout(2000);
+              const post_button = await this.page.$(
+                'button.comments-comment-box__submit-button',
+              );
+              await post_button.click();
+              await this.page.waitForTimeout(2000);
+              await this.page.$eval('form.comments-comment-box__form', (el) =>
+                el.remove(),
+              );
+              await this.page.waitForTimeout(4000);
+            }
+          }
+        }
+      }
+    } catch (error) {}
     this.socket.emit('connect_email', { email: this.email });
 
     this.socket.on('statistics', async ({ link_organization }) => {
@@ -966,8 +1036,6 @@ export class BotService {
           (el) => Math.trunc(Number(el.innerText.replace(/[^0-9]/g, '')) / 10),
         );
 
-        console.log(followers_count, typeof followers_count);
-
         for (let item = 0; item < followers_count; item++) {
           await this.page.$eval('html', (el) =>
             el.scrollTo({
@@ -998,10 +1066,6 @@ export class BotService {
           'div.entity-result__primary-subtitle',
           (nodes) => nodes.map((n) => n.innerText),
         );
-
-        console.log(followers_name.length);
-        console.log(folloers_link.length);
-        console.log(followers_position.length);
 
         // this.socket.emit('followers', { email: this.email });
       } catch (error) {
