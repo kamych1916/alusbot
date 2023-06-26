@@ -1,6 +1,14 @@
     this.socket.on('profile_info', async (response) => {
       try {
-        // const response = ['https://www.linkedin.com/in/jamesmatkinson/'];
+        // const response = [
+        //   'https://www.linkedin.com/in/nikita-lukyanov-4ba473233/',
+        //   'https://www.linkedin.com/in/alena-mironova-462591267/',
+        //   'https://www.linkedin.com/in/julia-duvanova-84330a164/',
+        // ];
+        const contact_info = [];
+        const education = [];
+        const experience = [];
+
         for (const client of response) {
           await this.page.goto(client, {
             waitUntil: 'load',
@@ -18,7 +26,6 @@
             }),
           );
 
-          const contact_info = [];
           const client_name_block = await this.page.$(
             '.text-heading-xlarge.inline.t-24.v-align-middle.break-words',
           );
@@ -32,10 +39,10 @@
               '.ember-view.link-without-visited-state.cursor-pointer.text-heading-small.inline-block.break-words',
             )) !== null
           ) {
-            const contact_info = await this.page.$(
+            const contact_info_button = await this.page.$(
               '.ember-view.link-without-visited-state.cursor-pointer.text-heading-small.inline-block.break-words',
             );
-            await contact_info.evaluate((el) => el.click());
+            await contact_info_button.evaluate((el) => el.click());
             await this.page.waitForTimeout(2000);
 
             const info_thread = await this.page.$$(
@@ -76,7 +83,6 @@
           );
           await this.page.waitForTimeout(4000);
 
-          const education = [];
           const education_thread = await this.page.$$(
             '.artdeco-card.ember-view.relative.break-words.pb3.mt2',
           );
@@ -102,18 +108,72 @@
             }
           }
 
-          console.log(contact_info);
-          console.log('--- lol ---');
-          console.log(education);
-
-          this.socket.emit('profile_info', {
-            data: {
-              contact_info,
-              education,
-            },
-            email: this.email,
-          });
+          const experience_thread = await this.page.$$(
+            '.artdeco-card.ember-view.relative.break-words.pb3.mt2',
+          );
+          for (const item in experience_thread) {
+            const head = await this.page.evaluate(
+              (el) =>
+                el
+                  .querySelector('h2.pvs-header__title.text-heading-large')
+                  .textContent.trim(),
+              education_thread[item],
+            );
+            if (head.includes('Experience')) {
+              const experience_link_node = await this.page.$(
+                'a.optional-action-target-wrapper.display-flex',
+              );
+              if (experience_link_node !== null) {
+                const experience_link_text = await this.page.$eval(
+                  'a.optional-action-target-wrapper.display-flex',
+                  (el) => el.href,
+                );
+                if (experience_link_text.includes('company')) {
+                  const experience_link_button = await this.page.$(
+                    'a.optional-action-target-wrapper.display-flex',
+                  );
+                  await experience_link_button.evaluate((el) => el.click());
+                  await this.page.waitForNavigation({ timeout: 60000 });
+                  await this.page.waitForTimeout(4000);
+                  const company_link = await this.page.url();
+                  const company_name = await this.page.$eval(
+                    'h1.ember-view.text-display-medium-bold.org-top-card-summary__title.full-width',
+                    (el) => el.innerText,
+                  );
+                  const comapny_description = await this.page.$eval(
+                    'p.org-top-card-summary__tagline.org-top-card-improvement-summary__tagline',
+                    (el) => el.innerText,
+                  );
+                  const comapny_tags = await this.page.$eval(
+                    '.org-top-card-summary-info-list.org-top-card-improvement-summary-info-list',
+                    (el) => el.innerText,
+                  );
+                  experience.push({
+                    client_name,
+                    company_link,
+                    company_name,
+                    comapny_description,
+                    comapny_tags,
+                  });
+                }
+              }
+              break;
+            }
+          }
         }
+        // console.log({
+        //   contact_info,
+        //   education,
+        //   experience,
+        // });
+        this.socket.emit('profile_info', {
+          data: {
+            contact_info,
+            education,
+            experience,
+          },
+          email: this.email,
+        });
       } catch (error) {
         console.log(error);
         axios.default.post('http://bot.midera.fun:8000/server/errors', {
