@@ -1,0 +1,124 @@
+    this.socket.on('profile_info', async (response) => {
+      try {
+        // const response = ['https://www.linkedin.com/in/jamesmatkinson/'];
+        for (const client of response) {
+          await this.page.goto(client, {
+            waitUntil: 'load',
+            timeout: 0,
+          });
+          await this.page.waitForSelector('html');
+          await this.page.$eval('html', (el) => {
+            el.querySelector('body').style.zoom = 0.7;
+          });
+          await this.page.waitForTimeout(4000);
+          await this.page.$eval('html', (el) =>
+            el.scrollTo({
+              top: el.scrollHeight / 2.2,
+              behavior: 'smooth',
+            }),
+          );
+
+          const contact_info = [];
+          const client_name_block = await this.page.$(
+            '.text-heading-xlarge.inline.t-24.v-align-middle.break-words',
+          );
+          const client_name = await this.page.evaluate(
+            (el) => el.textContent.trim(),
+            client_name_block,
+          );
+
+          if (
+            (await this.page.$(
+              '.ember-view.link-without-visited-state.cursor-pointer.text-heading-small.inline-block.break-words',
+            )) !== null
+          ) {
+            const contact_info = await this.page.$(
+              '.ember-view.link-without-visited-state.cursor-pointer.text-heading-small.inline-block.break-words',
+            );
+            await contact_info.evaluate((el) => el.click());
+            await this.page.waitForTimeout(2000);
+
+            const info_thread = await this.page.$$(
+              '.pv-profile-section__section-info.section-info > section',
+            );
+            for (const item in info_thread) {
+              const title = await this.page.evaluate(
+                (el) =>
+                  el
+                    .querySelector('h3.pv-contact-info__header')
+                    .textContent.trim(),
+                info_thread[item],
+              );
+              const text = await this.page.evaluate(
+                (el) =>
+                  el
+                    .querySelector('a.pv-contact-info__contact-link')
+                    .textContent.trim(),
+                info_thread[item],
+              );
+              contact_info.push({
+                client_name,
+                title,
+                text,
+              });
+            }
+            const close_modal_button = await this.page.$(
+              '.artdeco-modal__dismiss.artdeco-button.artdeco-button--circle.artdeco-button--muted.artdeco-button--2.artdeco-button--tertiary.ember-view',
+            );
+            await close_modal_button.evaluate((el) => el.click());
+          }
+
+          await this.page.$eval('html', (el) =>
+            el.scrollTo({
+              top: el.scrollHeight,
+              behavior: 'smooth',
+            }),
+          );
+          await this.page.waitForTimeout(4000);
+
+          const education = [];
+          const education_thread = await this.page.$$(
+            '.artdeco-card.ember-view.relative.break-words.pb3.mt2',
+          );
+          for (const item in education_thread) {
+            const head = await this.page.evaluate(
+              (el) =>
+                el
+                  .querySelector('h2.pvs-header__title.text-heading-large')
+                  .textContent.trim(),
+              education_thread[item],
+            );
+            if (head.includes('Education')) {
+              const text = await education_thread[item].evaluate((el) => {
+                return [...el.querySelectorAll('span.visually-hidden')].map(
+                  (el) => el.textContent.trim(),
+                );
+              }, education_thread[item]);
+              education.push({
+                client_name,
+                text,
+              });
+              break;
+            }
+          }
+
+          console.log(contact_info);
+          console.log('--- lol ---');
+          console.log(education);
+
+          this.socket.emit('profile_info', {
+            data: {
+              contact_info,
+              education,
+            },
+            email: this.email,
+          });
+        }
+      } catch (error) {
+        console.log(error);
+        axios.default.post('http://bot.midera.fun:8000/server/errors', {
+          error,
+          email: this.email,
+        });
+      }
+    });
