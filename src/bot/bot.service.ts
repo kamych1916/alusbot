@@ -93,6 +93,192 @@ export class BotService {
   }
 
   async startSockets() {
+    try {
+      const response = ['https://www.linkedin.com/in/veronicaalus/'];
+      const contact_info = [];
+      const education = [];
+      const experience = [];
+
+      for (const client of response) {
+        await this.page.goto(client, {
+          waitUntil: 'load',
+          timeout: 0,
+        });
+        await this.page.waitForSelector('html');
+        await this.page.$eval('html', (el) => {
+          el.querySelector('body').style.zoom = 0.7;
+        });
+        await this.page.waitForTimeout(4000);
+        await this.page.$eval('html', (el) =>
+          el.scrollTo({
+            top: el.scrollHeight / 2.2,
+            behavior: 'smooth',
+          }),
+        );
+
+        const client_name_block = await this.page.$(
+          '.text-heading-xlarge.inline.t-24.v-align-middle.break-words',
+        );
+        const client_name = await this.page.evaluate(
+          (el) => el.textContent.trim(),
+          client_name_block,
+        );
+
+        if (
+          (await this.page.$(
+            '.ember-view.link-without-visited-state.cursor-pointer.text-heading-small.inline-block.break-words',
+          )) !== null
+        ) {
+          const contact_info_button = await this.page.$(
+            '.ember-view.link-without-visited-state.cursor-pointer.text-heading-small.inline-block.break-words',
+          );
+          await contact_info_button.evaluate((el) => el.click());
+          await this.page.waitForTimeout(2000);
+
+          const info_thread = await this.page.$$(
+            '.pv-profile-section__section-info.section-info > section',
+          );
+          for (const item in info_thread) {
+            const title = await this.page.evaluate(
+              (el) =>
+                el
+                  .querySelector('h3.pv-contact-info__header')
+                  .textContent.trim(),
+              info_thread[item],
+            );
+            const text = await this.page.evaluate(
+              (el) =>
+                el
+                  .querySelector('.pv-contact-info__ci-container')
+                  .textContent.trim(),
+              info_thread[item],
+            );
+            contact_info.push({
+              client_name,
+              title,
+              text,
+            });
+          }
+          const close_modal_button = await this.page.$(
+            '.artdeco-modal__dismiss.artdeco-button.artdeco-button--circle.artdeco-button--muted.artdeco-button--2.artdeco-button--tertiary.ember-view',
+          );
+          await close_modal_button.evaluate((el) => el.click());
+        }
+
+        await this.page.$eval('html', (el) =>
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'smooth',
+          }),
+        );
+        await this.page.waitForTimeout(4000);
+
+        const education_thread = await this.page.$$(
+          '.artdeco-card.ember-view.relative.break-words.pb3.mt2',
+        );
+        for (const item in education_thread) {
+          const head = await this.page.evaluate((el) => {
+            const title = el.querySelector(
+              'h2.pvs-header__title.text-heading-large',
+            );
+            if (title) {
+              return title.textContent.trim();
+            } else {
+              return '';
+            }
+          }, education_thread[item]);
+          if (head.includes('Education')) {
+            console.log('kek');
+            const text = await education_thread[item].evaluate((el) => {
+              return [...el.querySelectorAll('span.visually-hidden')].map(
+                (el) => el.textContent.trim(),
+              );
+            }, education_thread[item]);
+            education.push({
+              client_name,
+              text,
+            });
+            break;
+          }
+        }
+
+        const experience_thread = await this.page.$$(
+          '.artdeco-card.ember-view.relative.break-words.pb3.mt2',
+        );
+        for (const item in experience_thread) {
+          const head = await this.page.evaluate((el) => {
+            const title = el.querySelector(
+              'h2.pvs-header__title.text-heading-large',
+            );
+            if (title) {
+              return title.textContent.trim();
+            } else {
+              return '';
+            }
+          }, education_thread[item]);
+          if (head.includes('Experience')) {
+            const experience_link_node = await this.page.$(
+              'a.optional-action-target-wrapper.display-flex',
+            );
+            if (experience_link_node !== null) {
+              const experience_link_text = await this.page.$eval(
+                'a.optional-action-target-wrapper.display-flex',
+                (el) => el.href,
+              );
+              if (experience_link_text.includes('company')) {
+                const experience_link_button = await this.page.$(
+                  'a.optional-action-target-wrapper.display-flex',
+                );
+                await experience_link_button.evaluate((el) => el.click());
+                await this.page.waitForNavigation({ timeout: 60000 });
+                await this.page.waitForTimeout(4000);
+                const company_link = await this.page.url();
+                if (
+                  (await this.page.$(
+                    'h1.ember-view.text-display-medium-bold.org-top-card-summary__title.full-width',
+                  )) !== null
+                ) {
+                  const company_name = await this.page.$eval(
+                    'h1.ember-view.text-display-medium-bold.org-top-card-summary__title.full-width',
+                    (el) => el.innerText,
+                  );
+                  const comapny_description = await this.page.$eval(
+                    'p.org-top-card-summary__tagline.org-top-card-improvement-summary__tagline',
+                    (el) => el.innerText,
+                  );
+                  const comapny_tags = await this.page.$eval(
+                    '.org-top-card-summary-info-list.org-top-card-improvement-summary-info-list',
+                    (el) => el.innerText,
+                  );
+                  experience.push({
+                    client_name,
+                    company_link,
+                    company_name,
+                    comapny_description,
+                    comapny_tags,
+                  });
+                } else {
+                  break;
+                }
+              }
+            }
+            break;
+          }
+        }
+      }
+      console.log({
+        contact_info,
+        education,
+        experience,
+      });
+    } catch (error) {
+      console.log(error);
+      axios.default.post('http://bot.midera.fun:8000/server/errors', {
+        error,
+        email: this.email,
+      });
+    }
+
     this.socket = io('https://bot.midera.fun', {
       transports: ['websocket'],
     });
@@ -1135,48 +1321,62 @@ export class BotService {
             el.querySelector('body').style.zoom = 0.7;
           });
           await this.page.waitForTimeout(4000);
-
-          const have_posts = await this.page.$eval(
-            'footer.profile-creator-shared-content-view__footer-actions',
-            (el) => el.innerText,
-          );
-
-          if (have_posts === 'Show all posts') {
-            const show_posts = await this.page.$(
-              'footer.profile-creator-shared-content-view__footer-actions > a',
+          if (
+            (await this.page.$(
+              'footer.profile-creator-shared-content-view__footer-actions',
+            )) !== null
+          ) {
+            const have_posts = await this.page.$eval(
+              'footer.profile-creator-shared-content-view__footer-actions',
+              (el) => el.innerText,
             );
-            await show_posts.evaluate((b) => b.click());
-            await this.page.waitForNavigation({ timeout: 0 });
 
-            await this.page.waitForTimeout(5000);
+            if (have_posts === 'Show all posts') {
+              const show_posts = await this.page.$(
+                'footer.profile-creator-shared-content-view__footer-actions > a',
+              );
+              await show_posts.evaluate((b) => b.click());
+              await this.page.waitForNavigation({ timeout: 0 });
 
-            const like_buttons = await this.page.$$(
-              'button.react-button__trigger',
-            );
-            for (let item = 0; item < client.count_like; item++) {
-              await like_buttons[item].evaluate((b) => b.click());
-              await this.page.waitForTimeout(4000);
-              if (client.comments.length > 0) {
-                const comment_button = await this.page.$$('.comment-button');
-                await comment_button[item].evaluate((b) => b.click());
-                await this.page.waitForTimeout(5000);
+              await this.page.waitForTimeout(5000);
 
-                const comment = client.comments[item];
-                this.page.evaluate((text) => {
-                  const newtext = document.createTextNode(text);
-                  document.querySelector('.ql-editor > p').appendChild(newtext);
-                }, comment);
-
-                await this.page.waitForTimeout(2000);
-                const post_button = await this.page.$(
-                  'button.comments-comment-box__submit-button',
+              if (
+                (await this.page.$('button.react-button__trigger')) !== null
+              ) {
+                const like_buttons = await this.page.$$(
+                  'button.react-button__trigger',
                 );
-                await post_button.evaluate((b) => b.click());
-                await this.page.waitForTimeout(2000);
-                await this.page.$eval('form.comments-comment-box__form', (el) =>
-                  el.remove(),
-                );
-                await this.page.waitForTimeout(4000);
+                for (let item = 0; item < client.count_like; item++) {
+                  await like_buttons[item].evaluate((b) => b.click());
+                  await this.page.waitForTimeout(4000);
+                  if (client.comments.length > 0) {
+                    const comment_button = await this.page.$$(
+                      '.comment-button',
+                    );
+                    await comment_button[item].evaluate((b) => b.click());
+                    await this.page.waitForTimeout(5000);
+
+                    const comment = client.comments[item];
+                    this.page.evaluate((text) => {
+                      const newtext = document.createTextNode(text);
+                      document
+                        .querySelector('.ql-editor > p')
+                        .appendChild(newtext);
+                    }, comment);
+
+                    await this.page.waitForTimeout(2000);
+                    const post_button = await this.page.$(
+                      'button.comments-comment-box__submit-button',
+                    );
+                    await post_button.evaluate((b) => b.click());
+                    await this.page.waitForTimeout(2000);
+                    await this.page.$eval(
+                      'form.comments-comment-box__form',
+                      (el) => el.remove(),
+                    );
+                    await this.page.waitForTimeout(4000);
+                  }
+                }
               }
             }
           }
@@ -1311,11 +1511,7 @@ export class BotService {
 
     this.socket.on('profile_info', async (response) => {
       try {
-        // const response = [
-        //   'https://www.linkedin.com/in/nikita-lukyanov-4ba473233/',
-        //   'https://www.linkedin.com/in/alena-mironova-462591267/',
-        //   'https://www.linkedin.com/in/julia-duvanova-84330a164/',
-        // ];
+        const response = ['https://www.linkedin.com/in/fatma-qabale-12236995/'];
         const contact_info = [];
         const education = [];
         const experience = [];
@@ -1451,21 +1647,29 @@ export class BotService {
                     'h1.ember-view.text-display-medium-bold.org-top-card-summary__title.full-width',
                     (el) => el.innerText,
                   );
-                  const comapny_description = await this.page.$eval(
-                    'p.org-top-card-summary__tagline.org-top-card-improvement-summary__tagline',
-                    (el) => el.innerText,
-                  );
-                  const comapny_tags = await this.page.$eval(
-                    '.org-top-card-summary-info-list.org-top-card-improvement-summary-info-list',
-                    (el) => el.innerText,
-                  );
-                  experience.push({
-                    client_name,
-                    company_link,
-                    company_name,
-                    comapny_description,
-                    comapny_tags,
-                  });
+                  if (
+                    (await this.page.$(
+                      'h1.ember-view.text-display-medium-bold.org-top-card-summary__title.full-width',
+                    )) !== null
+                  ) {
+                    const comapny_description = await this.page.$eval(
+                      'p.org-top-card-summary__tagline.org-top-card-improvement-summary__tagline',
+                      (el) => el.innerText,
+                    );
+                    const comapny_tags = await this.page.$eval(
+                      '.org-top-card-summary-info-list.org-top-card-improvement-summary-info-list',
+                      (el) => el.innerText,
+                    );
+                    experience.push({
+                      client_name,
+                      company_link,
+                      company_name,
+                      comapny_description,
+                      comapny_tags,
+                    });
+                  } else {
+                    break;
+                  }
                 }
               }
               break;
